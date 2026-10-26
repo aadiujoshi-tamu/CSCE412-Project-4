@@ -136,10 +136,10 @@
       <text class="mem" x="600" y="66">-ranges: vector&lt;IPRange&gt;</text>
       <text class="mem" x="600" y="82">-blockedCount: long</text>
       <line class="sep" x1="590" y1="88" x2="840" y2="88"/>
-      <text class="mem" x="600" y="104">+addRange(lo, hi): void</text>
+      <text class="mem" x="600" y="104">+addRange(cidr): void</text>
       <text class="mem" x="600" y="120">+isBlocked(ip): bool</text>
       <text class="mem" x="600" y="136">+loadRanges(cfg): void</text>
-      <text class="mem" x="600" y="152">+getBlockedCount(): long</text>
+      <text class="mem" x="600" y="152">+rangeCount(): size_t</text>
     </g>
 
     <!-- Switch (bonus) -->
@@ -455,8 +455,8 @@ random_seed    = 12345
 job_time_min   = 5
 job_time_max   = 80
 verbose        = true
-block_range    = 10.0.0.0-10.0.255.255
-block_range    = 192.168.50.0-192.168.50.255</pre>
+block_range    = 10.0.0.0/16
+block_range    = 192.168.50.0/24</pre>
     </div>
     <div>
       <h3>Run modes</h3>

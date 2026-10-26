@@ -7,6 +7,7 @@
 
 LoadBalancer::LoadBalancer(const LoadBalancerOptions& options)
     : options_(options),
+      ipFilter_(options.blockedIPRanges),
       requestGenerator_(options.randomSeed,
                         options.minRequestDuration,
                         options.maxRequestDuration) {
@@ -48,13 +49,19 @@ LoadBalancer::LoadBalancer(const LoadBalancerOptions& options)
     }
 }
 
-void LoadBalancer::addRequest(const Request& request) {
+bool LoadBalancer::addRequest(const Request& request) {
     if (request.timeCycles <= 0) {
         throw std::invalid_argument("Request processing duration must be positive");
     }
-    queue_.push(request);
+    const bool blocked = ipFilter_.isBlocked(request.ipIn);
     ++generatedRequests_;
+    if (blocked) {
+        ++rejectedRequests_;
+        return false;
+    }
+    queue_.push(request);
     ++acceptedRequests_;
+    return true;
 }
 
 void LoadBalancer::assignRequests() {
@@ -188,6 +195,7 @@ LBStats LoadBalancer::getStatistics() const {
     result.randomSeed = options_.randomSeed;
     result.generatedRequests = generatedRequests_;
     result.acceptedRequests = acceptedRequests_;
+    result.rejectedRequests = rejectedRequests_;
     result.arrivalEvents = arrivalEvents_;
     result.completedRequests = completedRequests_;
     result.queuedRequests = queue_.size();

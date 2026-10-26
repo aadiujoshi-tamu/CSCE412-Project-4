@@ -1,6 +1,7 @@
 #ifndef MERIDIAN_LOAD_BALANCER_H
 #define MERIDIAN_LOAD_BALANCER_H
 
+#include "IPFilter.h"
 #include "RequestGenerator.h"
 #include "RequestQueue.h"
 #include "WebServer.h"
@@ -27,6 +28,7 @@ struct LoadBalancerOptions {
     std::size_t maxRequestsPerServer = 80;
     std::uint64_t scalingCooldown = 100;
     bool scalingEnabled = true;
+    std::vector<std::string> blockedIPRanges;
 };
 
 /** Snapshot of aggregate load-balancer and server state. */
@@ -35,6 +37,7 @@ struct LBStats {
     std::uint64_t randomSeed = 0;
     std::uint64_t generatedRequests = 0;
     std::uint64_t acceptedRequests = 0;
+    std::uint64_t rejectedRequests = 0;
     std::uint64_t arrivalEvents = 0;
     std::uint64_t completedRequests = 0;
     std::size_t queuedRequests = 0;
@@ -56,15 +59,15 @@ struct LBStats {
  *
  * Owns the initial workload, FIFO queue, and server pool. Each cycle advances
  * existing work, generates this cycle's arrivals, considers scaling, then
- * assigns waiting work. Firewall checks, configuration-file loading, and
- * logging are added later.
+ * assigns waiting work. The firewall filters requests before queue admission;
+ * configuration-file loading and logging are added later.
  */
 class LoadBalancer {
 public:
     explicit LoadBalancer(const LoadBalancerOptions& options);
 
-    /** Add an already accepted request to the back of the FIFO queue. */
-    void addRequest(const Request& request);
+    /** Filter and submit an incoming request; return true when it is queued. */
+    bool addRequest(const Request& request);
 
     /** Assign queued requests to idle servers in server-ID order. */
     void assignRequests();
@@ -92,12 +95,14 @@ public:
 
 private:
     LoadBalancerOptions options_;
+    IPFilter ipFilter_;
     RequestQueue queue_;
     std::vector<std::unique_ptr<WebServer>> servers_;
     RequestGenerator requestGenerator_;
     std::uint64_t currentCycle_ = 0;
     std::uint64_t generatedRequests_ = 0;
     std::uint64_t acceptedRequests_ = 0;
+    std::uint64_t rejectedRequests_ = 0;
     std::uint64_t arrivalEvents_ = 0;
     std::uint64_t completedRequests_ = 0;
     std::uint64_t queueSizeSum_ = 0;
