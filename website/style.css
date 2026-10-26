@@ -1,0 +1,182 @@
+/* Meridian Cloud - Project 4 design document */
+:root {
+  --navy: #0B1F3A;
+  --navy2: #13335c;
+  --teal: #14B8C4;
+  --teal-dark: #0f7f89;
+  --gold: #F2B134;
+  --bg: #F3F7FB;
+  --ink: #1c2a3a;
+  --muted: #5a6b7d;
+}
+
+* { box-sizing: border-box; }
+
+body {
+  margin: 0;
+  font-family: "Segoe UI", system-ui, -apple-system, Roboto, Helvetica, Arial, sans-serif;
+  background: var(--bg);
+  color: var(--ink);
+  line-height: 1.65;
+}
+
+/* ---------- Header / branding ---------- */
+header.site {
+  background: linear-gradient(135deg, var(--navy) 0%, var(--navy2) 100%);
+  color: #fff;
+  border-bottom: 4px solid var(--gold);
+}
+.header-inner {
+  max-width: 1160px;
+  margin: 0 auto;
+  padding: 18px 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 14px;
+}
+.brand { display: flex; align-items: center; gap: 14px; text-decoration: none; color: #fff; }
+.brand .logo { width: 52px; height: 52px; }
+.brand .wordmark { font-size: 1.55rem; font-weight: 800; letter-spacing: 3px; text-transform: uppercase; line-height: 1; }
+.brand .wordmark span { color: var(--teal); }
+.brand .tagline { font-size: 0.78rem; letter-spacing: 1.5px; color: #b9cbe0; margin-top: 5px; }
+nav a {
+  color: #dbe7f5;
+  text-decoration: none;
+  margin-left: 18px;
+  font-size: 0.92rem;
+  font-weight: 600;
+  padding-bottom: 3px;
+  border-bottom: 2px solid transparent;
+}
+nav a:hover { color: #fff; border-bottom-color: var(--gold); }
+
+/* ---------- Hero ---------- */
+.hero {
+  background: var(--navy);
+  color: #fff;
+  padding: 46px 24px 54px;
+  background-image:
+    radial-gradient(circle at 85% 20%, rgba(20,184,196,.25), transparent 45%),
+    radial-gradient(circle at 10% 90%, rgba(242,177,52,.15), transparent 40%);
+}
+.hero-inner { max-width: 1160px; margin: 0 auto; }
+.hero .eyebrow { color: var(--teal); font-weight: 700; letter-spacing: 3px; font-size: .8rem; text-transform: uppercase; }
+.hero h1 { margin: 8px 0 12px; font-size: 2.4rem; line-height: 1.15; }
+.hero p { max-width: 760px; color: #cfdcec; font-size: 1.05rem; margin: 0; }
+.chips { margin-top: 20px; display: flex; flex-wrap: wrap; gap: 10px; }
+.chip {
+  background: rgba(255,255,255,.1);
+  border: 1px solid rgba(255,255,255,.25);
+  padding: 5px 14px;
+  border-radius: 999px;
+  font-size: .85rem;
+}
+
+/* ---------- Layout ---------- */
+main { max-width: 1160px; margin: -28px auto 40px; padding: 0 24px; }
+section.card {
+  background: #fff;
+  border-radius: 12px;
+  box-shadow: 0 2px 14px rgba(11,31,58,.09);
+  padding: 30px 34px;
+  margin-bottom: 28px;
+  border-top: 4px solid var(--teal);
+}
+section.card h2 {
+  margin: 0 0 6px;
+  color: var(--navy);
+  font-size: 1.55rem;
+}
+section.card h2::after {
+  content: "";
+  display: block;
+  width: 56px;
+  height: 4px;
+  background: var(--gold);
+  margin-top: 8px;
+  border-radius: 2px;
+}
+section.card h3 { color: var(--navy2); margin: 26px 0 6px; }
+p.lead { color: var(--muted); }
+code, pre { font-family: ui-monospace, "Cascadia Code", Menlo, Consolas, monospace; }
+code { background: #eef3f8; padding: 1px 6px; border-radius: 4px; font-size: .9em; }
+pre {
+  background: var(--navy);
+  color: #d6e6f7;
+  padding: 18px 22px;
+  border-radius: 8px;
+  overflow-x: auto;
+  font-size: .86rem;
+  line-height: 1.55;
+  border-left: 5px solid var(--teal);
+}
+
+/* ---------- Diagrams ---------- */
+.diagram-wrap {
+  overflow-x: auto;
+  background: #fbfdff;
+  border: 1px solid #dbe6f1;
+  border-radius: 10px;
+  padding: 12px;
+  margin: 16px 0 8px;
+}
+.diagram-wrap svg { width: 100%; height: auto; min-width: 820px; display: block; }
+.legend { color: var(--muted); font-size: .88rem; margin: 6px 0 0; }
+
+/* UML */
+.box { fill: #fff; stroke: #0B1F3A; stroke-width: 1.5; }
+.hdr { fill: #0B1F3A; }
+.cname { fill: #fff; font-weight: 700; font-size: 14px; text-anchor: middle; }
+.ster { fill: #F2B134; font-size: 11px; text-anchor: middle; font-style: italic; }
+.mem { font-family: ui-monospace, Menlo, Consolas, monospace; font-size: 12px; fill: #1c2a3a; }
+.sep { stroke: #0B1F3A; stroke-width: 1; }
+.bonus .box { stroke: #14B8C4; stroke-dasharray: 6 4; }
+.bonus .hdr { fill: #0f7f89; }
+.rel { stroke: #13335c; stroke-width: 1.6; fill: none; }
+.dep { stroke-dasharray: 5 4; }
+.dia { fill: #13335c; stroke: #13335c; stroke-width: 1; }
+.lbl { font-size: 11px; fill: #3b4b5e; font-style: italic; font-family: "Segoe UI", sans-serif; }
+
+/* Flow chart */
+.fbox { fill: #fff; stroke: #0B1F3A; stroke-width: 1.5; }
+.fdec { fill: #FFF7E6; stroke: #F2B134; stroke-width: 2; }
+.fend { fill: #0B1F3A; stroke: #0B1F3A; }
+.fside { fill: #E8F8FA; stroke: #14B8C4; stroke-width: 1.5; }
+.ft1 { font-size: 13.5px; font-weight: 700; fill: #0B1F3A; text-anchor: middle; font-family: "Segoe UI", sans-serif; }
+.ft2 { font-size: 12.5px; fill: #3b4b5e; text-anchor: middle; font-family: "Segoe UI", sans-serif; }
+.fend + .ft1, .ft1.w, .ft2.w { fill: #fff; }
+.loop { fill: none; stroke: #14B8C4; stroke-width: 1.5; stroke-dasharray: 6 5; }
+.looptxt { font-size: 11px; fill: #0f7f89; font-weight: 700; letter-spacing: 1px; font-family: "Segoe UI", sans-serif; }
+.flow { stroke: #13335c; stroke-width: 1.6; fill: none; }
+
+/* ---------- Tables / lists ---------- */
+table { width: 100%; border-collapse: collapse; margin-top: 12px; font-size: .95rem; }
+th { background: var(--navy); color: #fff; text-align: left; padding: 10px 12px; }
+td { padding: 10px 12px; border-bottom: 1px solid #e3ebf3; vertical-align: top; }
+tr:nth-child(even) td { background: #f7fafd; }
+td:first-child { font-weight: 700; color: var(--navy2); white-space: nowrap; }
+
+ol.steps { padding-left: 22px; }
+ol.steps li { margin-bottom: 10px; }
+.callout {
+  background: #FFF7E6;
+  border-left: 5px solid var(--gold);
+  padding: 12px 18px;
+  border-radius: 6px;
+  margin: 16px 0;
+}
+.swatch { display: inline-block; width: 12px; height: 12px; border-radius: 3px; margin-right: 6px; vertical-align: middle; }
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 24px; }
+@media (max-width: 800px) { .grid2 { grid-template-columns: 1fr; } .hero h1 { font-size: 1.8rem; } nav a { margin: 0 14px 0 0; } }
+
+footer.site {
+  background: var(--navy);
+  color: #b9cbe0;
+  text-align: center;
+  padding: 26px 24px;
+  font-size: .9rem;
+  border-top: 4px solid var(--gold);
+}
+footer.site strong { color: #fff; }

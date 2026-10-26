@@ -1,0 +1,490 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Meridian Cloud | Load Balancer Design Document</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<header class="site">
+  <div class="header-inner">
+    <a class="brand" href="#top">
+      <svg class="logo" viewBox="0 0 64 64" aria-hidden="true">
+        <circle cx="32" cy="32" r="28" fill="none" stroke="#14B8C4" stroke-width="3"/>
+        <ellipse cx="32" cy="32" rx="12" ry="28" fill="none" stroke="#fff" stroke-width="2"/>
+        <line x1="32" y1="4" x2="32" y2="60" stroke="#F2B134" stroke-width="3"/>
+        <line x1="6" y1="32" x2="58" y2="32" stroke="#fff" stroke-width="2"/>
+        <circle cx="32" cy="32" r="5" fill="#F2B134"/>
+      </svg>
+      <div>
+        <div class="wordmark">Meridian <span>Cloud</span></div>
+        <div class="tagline">BALANCED TRAFFIC. STEADY SERVICE.</div>
+      </div>
+    </a>
+    <nav>
+      <a href="#overview">Overview</a>
+      <a href="#uml">UML</a>
+      <a href="#classes">Classes</a>
+      <a href="#flow">Workflow</a>
+      <a href="#scaling">Scaling</a>
+      <a href="#config">Config &amp; Logs</a>
+      <a href="../docs/design.md">System Design</a>
+      <a href="#bonus">Bonus</a>
+    </nav>
+  </div>
+</header>
+
+<div class="hero" id="top">
+  <div class="hero-inner">
+    <div class="eyebrow">Project 4 &middot; Pre-Deliverable &middot; Design Document</div>
+    <h1>Meridian Cloud Load Balancer</h1>
+    <p>Meridian Cloud's traffic management engine, written in C++. It distributes incoming web requests across a pool of web servers and automatically adds or removes servers to keep the request queue in a healthy range.</p>
+    <div class="chips">
+      <span class="chip">C++ engine</span>
+      <span class="chip">Dynamic server scaling</span>
+      <span class="chip">IP range firewall</span>
+      <span class="chip">Config file driven</span>
+      <span class="chip">Verbose / quiet logging</span>
+      <span class="chip">Bonus: job-type Switch</span>
+    </div>
+  </div>
+</div>
+
+<main>
+
+<!-- ============ OVERVIEW ============ -->
+<section class="card" id="overview">
+  <h2>1. Overview</h2>
+  <p class="lead">Meridian Cloud is a cloud hosting provider that serves web traffic for its customers around the clock. Incoming requests wait in a queue, web servers pull work from it one request at a time, and the load balancer watches the queue to decide whether it needs more or fewer servers.</p>
+  <div class="grid2">
+    <div>
+      <h3>What the program does</h3>
+      <ul>
+        <li>Reads settings from a configuration file (number of servers, run time, cooldown, request rates, blocked IP ranges).</li>
+        <li>Fills the queue with <code>servers &times; 100</code> random requests, then keeps adding new ones at random times.</li>
+        <li>Screens every new request against an IP range blocker before it is queued.</li>
+        <li>Lets each server process one request at a time for a random number of clock cycles.</li>
+        <li>Keeps the queue between <code>50 &times; servers</code> and <code>80 &times; servers</code> by adding or removing one server, then waiting <code>n</code> cycles.</li>
+        <li>Writes a color-coded console output and a log file, with a summary at the end.</li>
+      </ul>
+    </div>
+    <div>
+      <h3>Request data</h3>
+      <table>
+        <tr><th>Field</th><th>Type</th><th>Meaning</th></tr>
+        <tr><td>ipIn</td><td>string</td><td>Requester address</td></tr>
+        <tr><td>ipOut</td><td>string</td><td>Destination for the result</td></tr>
+        <tr><td>timeCycles</td><td>int</td><td>Clock cycles needed to process</td></tr>
+        <tr><td>jobType</td><td>char</td><td><code>P</code> processing or <code>S</code> streaming</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ============ UML ============ -->
+<section class="card" id="uml">
+  <h2>2. UML Class Diagram</h2>
+  <p class="lead">Each box lists a class with its data members (top) and methods (bottom). Solid diamonds mean ownership, dashed arrows mean &ldquo;uses&rdquo;. The dashed teal box is the bonus Switch class.</p>
+  <div class="diagram-wrap">
+  <svg viewBox="0 0 1100 790" role="img" aria-label="UML class diagram of the Meridian Cloud load balancer">
+    <defs>
+      <marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto">
+        <path d="M0 0 L10 5 L0 10 z" class="dia"/>
+      </marker>
+    </defs>
+
+    <!-- Config -->
+    <g>
+      <rect class="box" x="20" y="20" width="280" height="206" rx="4"/>
+      <rect class="hdr" x="20" y="20" width="280" height="28" rx="4"/>
+      <text class="cname" x="160" y="39">Config</text>
+      <text class="mem" x="30" y="66">-numServers: int</text>
+      <text class="mem" x="30" y="82">-runCycles: int</text>
+      <text class="mem" x="30" y="98">-cooldownN: int</text>
+      <text class="mem" x="30" y="114">-minPerServer, maxPerServer: int</text>
+      <text class="mem" x="30" y="130">-newRequestRate: double</text>
+      <text class="mem" x="30" y="146">-jobTimeMin, jobTimeMax: int</text>
+      <text class="mem" x="30" y="162">-verbose: bool</text>
+      <text class="mem" x="30" y="178">-blockedRanges: vector&lt;string&gt;</text>
+      <line class="sep" x1="20" y1="184" x2="300" y2="184"/>
+      <text class="mem" x="30" y="200">+load(path: string): bool</text>
+      <text class="mem" x="30" y="216">+validate(): bool</text>
+    </g>
+
+    <!-- Logger -->
+    <g>
+      <rect class="box" x="320" y="20" width="250" height="158" rx="4"/>
+      <rect class="hdr" x="320" y="20" width="250" height="28" rx="4"/>
+      <text class="cname" x="445" y="39">Logger</text>
+      <text class="mem" x="330" y="66">-verbose: bool</text>
+      <text class="mem" x="330" y="82">-useColor: bool</text>
+      <text class="mem" x="330" y="98">-logFile: ofstream</text>
+      <text class="mem" x="330" y="114">-eventCounts: map</text>
+      <line class="sep" x1="320" y1="120" x2="570" y2="120"/>
+      <text class="mem" x="330" y="136">+event(type, msg): void</text>
+      <text class="mem" x="330" y="152">+summary(stats): void</text>
+      <text class="mem" x="330" y="168">+setMode(verbose): void</text>
+    </g>
+
+    <!-- IPBlocker -->
+    <g>
+      <rect class="box" x="590" y="20" width="250" height="142" rx="4"/>
+      <rect class="hdr" x="590" y="20" width="250" height="28" rx="4"/>
+      <text class="cname" x="715" y="39">IPBlocker</text>
+      <text class="mem" x="600" y="66">-ranges: vector&lt;IPRange&gt;</text>
+      <text class="mem" x="600" y="82">-blockedCount: long</text>
+      <line class="sep" x1="590" y1="88" x2="840" y2="88"/>
+      <text class="mem" x="600" y="104">+addRange(lo, hi): void</text>
+      <text class="mem" x="600" y="120">+isBlocked(ip): bool</text>
+      <text class="mem" x="600" y="136">+loadRanges(cfg): void</text>
+      <text class="mem" x="600" y="152">+getBlockedCount(): long</text>
+    </g>
+
+    <!-- Switch (bonus) -->
+    <g class="bonus">
+      <rect class="box" x="860" y="20" width="220" height="126" rx="4"/>
+      <rect class="hdr" x="860" y="20" width="220" height="28" rx="4"/>
+      <text class="cname" x="970" y="39">Switch (bonus)</text>
+      <text class="mem" x="870" y="66">-streamLB: LoadBalancer*</text>
+      <text class="mem" x="870" y="82">-procLB: LoadBalancer*</text>
+      <line class="sep" x1="860" y1="88" x2="1080" y2="88"/>
+      <text class="mem" x="870" y="104">+route(r: Request): void</text>
+      <text class="mem" x="870" y="120">+stepAll(): void</text>
+      <text class="mem" x="870" y="136">+report(): void</text>
+    </g>
+
+    <!-- RequestQueue -->
+    <g>
+      <rect class="box" x="20" y="300" width="280" height="158" rx="4"/>
+      <rect class="hdr" x="20" y="300" width="280" height="28" rx="4"/>
+      <text class="cname" x="160" y="319">RequestQueue</text>
+      <text class="mem" x="30" y="346">-items: queue&lt;Request&gt;</text>
+      <text class="mem" x="30" y="362">-peakSize: int</text>
+      <line class="sep" x1="20" y1="368" x2="300" y2="368"/>
+      <text class="mem" x="30" y="384">+push(r: Request): void</text>
+      <text class="mem" x="30" y="400">+pop(): Request</text>
+      <text class="mem" x="30" y="416">+size(): int</text>
+      <text class="mem" x="30" y="432">+empty(): bool</text>
+      <text class="mem" x="30" y="448">+front(): const Request&amp;</text>
+    </g>
+
+    <!-- LoadBalancer -->
+    <g>
+      <rect class="box" x="340" y="260" width="420" height="286" rx="4" style="stroke-width:2.5"/>
+      <rect class="hdr" x="340" y="260" width="420" height="28" rx="4"/>
+      <text class="cname" x="550" y="279">LoadBalancer</text>
+      <text class="mem" x="350" y="306">-name: string</text>
+      <text class="mem" x="350" y="322">-clock: long</text>
+      <text class="mem" x="350" y="338">-queue: RequestQueue</text>
+      <text class="mem" x="350" y="354">-servers: vector&lt;WebServer*&gt;</text>
+      <text class="mem" x="350" y="370">-blocker: IPBlocker*</text>
+      <text class="mem" x="350" y="386">-cooldownLeft: int</text>
+      <text class="mem" x="350" y="402">-minPerServer, maxPerServer: int</text>
+      <text class="mem" x="350" y="418">-stats: LBStats</text>
+      <line class="sep" x1="340" y1="424" x2="760" y2="424"/>
+      <text class="mem" x="350" y="440">+fillInitialQueue(count: int): void</text>
+      <text class="mem" x="350" y="456">+step(): void</text>
+      <text class="mem" x="350" y="472">+addRandomRequests(): void</text>
+      <text class="mem" x="350" y="488">+assignWork(): void</text>
+      <text class="mem" x="350" y="504">+checkScaling(): void</text>
+      <text class="mem" x="350" y="520">+addServer() / removeServer(): void</text>
+      <text class="mem" x="350" y="536">+getSummary(): LBStats</text>
+    </g>
+
+    <!-- WebServer -->
+    <g>
+      <rect class="box" x="800" y="260" width="280" height="206" rx="4"/>
+      <rect class="hdr" x="800" y="260" width="280" height="28" rx="4"/>
+      <text class="cname" x="940" y="279">WebServer</text>
+      <text class="mem" x="810" y="306">-id: int</text>
+      <text class="mem" x="810" y="322">-busy: bool</text>
+      <text class="mem" x="810" y="338">-current: Request</text>
+      <text class="mem" x="810" y="354">-cyclesLeft: int</text>
+      <text class="mem" x="810" y="370">-jobsDone: long</text>
+      <text class="mem" x="810" y="386">-busyCycles: long</text>
+      <line class="sep" x1="800" y1="392" x2="1080" y2="392"/>
+      <text class="mem" x="810" y="408">+assign(r: Request): bool</text>
+      <text class="mem" x="810" y="424">+tick(): optional&lt;Request&gt;</text>
+      <text class="mem" x="810" y="440">+isIdle(), isBusy(): bool</text>
+      <text class="mem" x="810" y="456">+retireWhenIdle(): void</text>
+      <text class="mem" x="810" y="472">+stats(): ServerStats</text>
+    </g>
+
+    <!-- Request -->
+    <g>
+      <rect class="box" x="20" y="600" width="280" height="158" rx="4"/>
+      <rect class="hdr" x="20" y="600" width="280" height="28" rx="4"/>
+      <text class="cname" x="160" y="619">&laquo;struct&raquo; Request</text>
+      <text class="mem" x="30" y="646">+ipIn: string</text>
+      <text class="mem" x="30" y="662">+ipOut: string</text>
+      <text class="mem" x="30" y="678">+timeCycles: int</text>
+      <text class="mem" x="30" y="694">+jobType: char  ('P' | 'S')</text>
+      <text class="mem" x="30" y="710">+arrivalCycle: long</text>
+      <line class="sep" x1="20" y1="716" x2="300" y2="716"/>
+      <text class="mem" x="30" y="732">+randomRequest(): Request</text>
+      <text class="mem" x="30" y="748">+toString(): string</text>
+    </g>
+
+    <!-- Relationships -->
+    <!-- LB owns RequestQueue -->
+    <line class="rel" x1="300" y1="380" x2="316" y2="380"/>
+    <polygon class="dia" points="340,380 328,374 316,380 328,386"/>
+    <text class="lbl" x="320" y="366" text-anchor="middle">owns</text>
+    <!-- LB owns WebServers -->
+    <polygon class="dia" points="760,380 772,374 784,380 772,386"/>
+    <line class="rel" x1="784" y1="380" x2="800" y2="380"/>
+    <text class="lbl" x="780" y="366" text-anchor="middle">1..*</text>
+    <!-- Queue contains Requests -->
+    <line class="rel" x1="160" y1="458" x2="160" y2="598" marker-end="url(#arr)"/>
+    <text class="lbl" x="170" y="530">holds 0..*</text>
+    <!-- LB uses IPBlocker -->
+    <path class="rel dep" d="M620 260 V164" marker-end="url(#arr)"/>
+    <text class="lbl" x="628" y="215">screens requests</text>
+    <!-- LB uses Logger -->
+    <path class="rel dep" d="M445 260 V180" marker-end="url(#arr)"/>
+    <text class="lbl" x="453" y="225">logs events</text>
+    <!-- Config configures LB -->
+    <path class="rel dep" d="M60 226 V275 H338" marker-end="url(#arr)"/>
+    <text class="lbl" x="110" y="268">configures</text>
+    <!-- Switch routes to LB -->
+    <path class="rel dep" d="M880 146 V235 H700 V258" marker-end="url(#arr)"/>
+    <text class="lbl" x="890" y="200">routes by job type</text>
+    <text class="lbl" x="890" y="214">to 2 LoadBalancers</text>
+    <!-- WebServer processes Request -->
+    <path class="rel dep" d="M900 466 V700 H302" marker-end="url(#arr)"/>
+    <text class="lbl" x="560" y="692">processes one Request at a time</text>
+  </svg>
+  </div>
+  <p class="legend">Notes: <code>main()</code> (the driver) is not drawn as a class. It creates <code>Config</code>, <code>Logger</code>, <code>IPBlocker</code> and one or more <code>LoadBalancer</code> objects, then runs the clock loop. <code>LBStats</code> and <code>ServerStats</code> are small structs for summary data.</p>
+</section>
+
+<!-- ============ CLASSES ============ -->
+<section class="card" id="classes">
+  <h2>3. Class Descriptions</h2>
+  <p class="lead">Responsibilities, inputs and outputs for each class.</p>
+  <table>
+    <tr><th>Class</th><th>Responsibility</th><th>Key methods (input &rarr; output)</th></tr>
+    <tr><td>Request</td><td>A struct holding one job: requester IP, result IP, processing time and job type. Can generate itself randomly.</td><td><code>randomRequest(minT, maxT)</code> &rarr; Request<br><code>toString()</code> &rarr; string</td></tr>
+    <tr><td>RequestQueue</td><td>FIFO queue of Requests. Tracks its size and peak size so the balancer can make scaling decisions.</td><td><code>push(Request)</code> &rarr; void<br><code>pop()</code> &rarr; Request<br><code>size()</code> &rarr; int</td></tr>
+    <tr><td>WebServer</td><td>Processes one request at a time. Counts down the request's cycles, then becomes idle and asks the balancer for more work. Records jobs completed and busy cycles.</td><td><code>assign(Request)</code> &rarr; void<br><code>tick()</code> &rarr; void<br><code>isIdle()</code> &rarr; bool</td></tr>
+    <tr><td>IPBlocker</td><td>Acts as the firewall. Holds blocked IP ranges and rejects any request whose incoming IP falls inside one. Counts blocked requests.</td><td><code>addRange(lo, hi)</code> &rarr; void<br><code>isBlocked(ip)</code> &rarr; bool</td></tr>
+    <tr><td>LoadBalancer</td><td>Owns the queue and the server pool, keeps the clock, assigns work to idle servers, and applies the scaling rules. Several instances can run at once, each with its own statistics.</td><td><code>step()</code> &rarr; void (one clock cycle)<br><code>checkScaling()</code> &rarr; void<br><code>getSummary()</code> &rarr; LBStats</td></tr>
+    <tr><td>Config</td><td>Loads and validates the settings file so nothing has to be edited in code.</td><td><code>load(path)</code> &rarr; bool<br><code>validate()</code> &rarr; bool</td></tr>
+    <tr><td>Logger</td><td>Writes events to the console (with color) and to a log file. Verbose mode logs each change event; quiet mode logs only the start and end summaries.</td><td><code>event(type, msg)</code> &rarr; void<br><code>summary(stats)</code> &rarr; void</td></tr>
+    <tr><td>Switch (bonus)</td><td>A higher-level router that sends streaming jobs to one LoadBalancer and processing jobs to another.</td><td><code>route(Request)</code> &rarr; void<br><code>stepAll()</code> &rarr; void</td></tr>
+  </table>
+</section>
+
+<!-- ============ FLOW ============ -->
+<section class="card" id="flow">
+  <h2>4. Workflow Flow Chart</h2>
+  <p class="lead">The driver sets everything up once, then repeats the same steps for every clock cycle until the requested run time is reached.</p>
+  <div class="diagram-wrap">
+  <svg viewBox="0 0 900 1200" role="img" aria-label="Flow chart of the load balancer main loop">
+    <defs>
+      <marker id="farr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="9" markerHeight="9" orient="auto">
+        <path d="M0 0 L10 5 L0 10 z" class="dia"/>
+      </marker>
+    </defs>
+
+    <!-- Setup -->
+    <rect class="fbox" x="180" y="20" width="300" height="54" rx="8"/>
+    <text class="ft1" x="330" y="43">Read configuration file</text>
+    <text class="ft2" x="330" y="61">servers, cycles, cooldown n, rates, IP ranges</text>
+
+    <rect class="fbox" x="180" y="100" width="300" height="54" rx="8"/>
+    <text class="ft1" x="330" y="123">Prompt user (optional overrides)</text>
+    <text class="ft2" x="330" y="141">servers N, run cycles T, verbose or quiet</text>
+
+    <rect class="fbox" x="180" y="180" width="300" height="54" rx="8"/>
+    <text class="ft1" x="330" y="203">Build LoadBalancer</text>
+    <text class="ft2" x="330" y="221">create N WebServers, Logger, IPBlocker</text>
+
+    <rect class="fbox" x="180" y="260" width="300" height="54" rx="8"/>
+    <text class="ft1" x="330" y="283">Fill initial queue</text>
+    <text class="ft2" x="330" y="301">N &times; 100 random Requests</text>
+
+    <line class="flow" x1="330" y1="74" x2="330" y2="98" marker-end="url(#farr)"/>
+    <line class="flow" x1="330" y1="154" x2="330" y2="178" marker-end="url(#farr)"/>
+    <line class="flow" x1="330" y1="234" x2="330" y2="258" marker-end="url(#farr)"/>
+    <line class="flow" x1="330" y1="314" x2="330" y2="338" marker-end="url(#farr)"/>
+
+    <!-- D1 -->
+    <polygon class="fdec" points="330,340 440,380 330,420 220,380"/>
+    <text class="ft1" x="330" y="385">clock &lt; T ?</text>
+    <line class="flow" x1="330" y1="420" x2="330" y2="448" marker-end="url(#farr)"/>
+    <text class="ft2" x="346" y="438" style="text-anchor:start">yes</text>
+    <line class="flow" x1="440" y1="380" x2="638" y2="380" marker-end="url(#farr)"/>
+    <text class="ft2" x="540" y="372">no</text>
+    <rect class="fside" x="640" y="355" width="220" height="50" rx="8"/>
+    <text class="ft1" x="750" y="377">Print final summary</text>
+    <text class="ft2" x="750" y="394">log file + per-server stats</text>
+    <line class="flow" x1="750" y1="405" x2="750" y2="428" marker-end="url(#farr)"/>
+    <ellipse class="fend" cx="750" cy="450" rx="46" ry="20"/>
+    <text class="ft1 w" x="750" y="455">END</text>
+
+    <!-- Step 1 -->
+    <rect class="fbox" x="180" y="450" width="300" height="54" rx="8"/>
+    <text class="ft1" x="330" y="473">1. Generate new requests</text>
+    <text class="ft2" x="330" y="491">random number arrive this cycle</text>
+    <line class="flow" x1="330" y1="504" x2="330" y2="528" marker-end="url(#farr)"/>
+
+    <!-- D2 -->
+    <polygon class="fdec" points="330,530 440,570 330,610 220,570"/>
+    <text class="ft1" x="330" y="575">IP blocked ?</text>
+    <line class="flow" x1="440" y1="570" x2="638" y2="570" marker-end="url(#farr)"/>
+    <text class="ft2" x="540" y="562">yes</text>
+    <rect class="fside" x="640" y="545" width="220" height="50" rx="8"/>
+    <text class="ft1" x="750" y="567">Drop request</text>
+    <text class="ft2" x="750" y="584">blocked count + log event</text>
+    <path class="flow" d="M750 595 V765 H482" marker-end="url(#farr)"/>
+    <line class="flow" x1="330" y1="610" x2="330" y2="638" marker-end="url(#farr)"/>
+    <text class="ft2" x="346" y="628" style="text-anchor:start">no</text>
+
+    <!-- Step 2 -->
+    <rect class="fbox" x="180" y="640" width="300" height="54" rx="8"/>
+    <text class="ft1" x="330" y="663">2. Push to RequestQueue</text>
+    <text class="ft2" x="330" y="681">request accepted</text>
+    <line class="flow" x1="330" y1="694" x2="330" y2="738" marker-end="url(#farr)"/>
+
+    <!-- Step 3 -->
+    <rect class="fbox" x="180" y="740" width="300" height="54" rx="8"/>
+    <text class="ft1" x="330" y="763">3. Servers do work</text>
+    <text class="ft2" x="330" y="781">idle: pop and assign &middot; busy: tick</text>
+    <line class="flow" x1="330" y1="794" x2="330" y2="818" marker-end="url(#farr)"/>
+
+    <!-- D3 -->
+    <polygon class="fdec" points="330,820 440,860 330,900 220,860"/>
+    <text class="ft1" x="330" y="865">cooldown over ?</text>
+    <line class="flow" x1="330" y1="900" x2="330" y2="938" marker-end="url(#farr)"/>
+    <text class="ft2" x="346" y="926" style="text-anchor:start">yes</text>
+    <path class="flow" d="M440 860 H690 V1155 H482" marker-end="url(#farr)"/>
+    <text class="ft2" x="520" y="852">no</text>
+
+    <!-- D4 -->
+    <polygon class="fdec" points="330,940 440,980 330,1020 220,980"/>
+    <text class="ft1" x="330" y="975">queue size</text>
+    <text class="ft2" x="330" y="992">vs 50&middot;S and 80&middot;S</text>
+    <line class="flow" x1="220" y1="980" x2="192" y2="980" marker-end="url(#farr)"/>
+    <line class="flow" x1="440" y1="980" x2="468" y2="980" marker-end="url(#farr)"/>
+    <line class="flow" x1="330" y1="1020" x2="330" y2="1058" marker-end="url(#farr)"/>
+    <text class="ft2" x="346" y="1044" style="text-anchor:start">in range</text>
+
+    <rect class="fside" x="30" y="955" width="160" height="50" rx="8"/>
+    <text class="ft1" x="110" y="977">Remove 1 server</text>
+    <text class="ft2" x="110" y="994">if queue &lt; 50 &times; S</text>
+    <rect class="fside" x="470" y="955" width="160" height="50" rx="8"/>
+    <text class="ft1" x="550" y="977">Add 1 server</text>
+    <text class="ft2" x="550" y="994">if queue &gt; 80 &times; S</text>
+    <path class="flow" d="M110 1005 V1085 H178" marker-end="url(#farr)"/>
+    <path class="flow" d="M550 1005 V1085 H482" marker-end="url(#farr)"/>
+
+    <!-- Reset cooldown -->
+    <rect class="fbox" x="180" y="1060" width="300" height="50" rx="8"/>
+    <text class="ft1" x="330" y="1082">Log result, restart cooldown</text>
+    <text class="ft2" x="330" y="1099">restart only if a server was added/removed</text>
+    <line class="flow" x1="330" y1="1110" x2="330" y2="1128" marker-end="url(#farr)"/>
+
+    <!-- Advance clock -->
+    <rect class="fbox" x="180" y="1130" width="300" height="50" rx="8"/>
+    <text class="ft1" x="330" y="1152">4. Advance clock</text>
+    <text class="ft2" x="330" y="1169">clock++ and record cycle statistics</text>
+
+    <!-- loop back -->
+    <path class="loop" d="M180 1155 H12 V380 H218" marker-end="url(#farr)"/>
+    <text class="looptxt" x="20" y="700">NEXT</text>
+    <text class="looptxt" x="20" y="714">CYCLE</text>
+  </svg>
+  </div>
+  <p class="legend"><span class="swatch" style="background:#FFF7E6;border:2px solid #F2B134"></span>decision &nbsp; <span class="swatch" style="background:#E8F8FA;border:2px solid #14B8C4"></span>side action &nbsp; <span class="swatch" style="background:#fff;border:2px solid #0B1F3A"></span>process step &nbsp; (S = current number of servers, T = total run cycles)</p>
+
+  <h3>Text description of the workflow</h3>
+  <ol class="steps">
+    <li><strong>Startup.</strong> <code>main()</code> loads the configuration file, lets the user override the number of servers and the run time, and picks verbose or quiet mode. It then creates the Logger, the IPBlocker (with the configured ranges) and the LoadBalancer.</li>
+    <li><strong>Initial load.</strong> The LoadBalancer creates N WebServers and fills its RequestQueue with <code>N &times; 100</code> randomly generated Requests. This is the &ldquo;full queue&rdquo; the load balancer starts from.</li>
+    <li><strong>Clock loop.</strong> While <code>clock &lt; T</code>, the program repeats the following for each cycle:
+      <ol type="a">
+        <li><em>Finish current work:</em> servers that were busy at cycle start advance one tick; completed requests are recorded and those servers become idle.</li>
+        <li><em>Arrivals and firewall:</em> the generator creates this cycle's random batch. Each source address is checked; blocked requests count as rejected and allowed requests enter the FIFO queue.</li>
+        <li><em>Scaling:</em> when cooldown permits, compare the post-arrival queue to the thresholds and make at most one server-count change. A server selected for retirement finishes its current request and is removed once idle.</li>
+        <li><em>Assignment:</em> idle, non-retiring servers take the oldest queued requests. New assignments do not tick until the next cycle.</li>
+        <li><em>Advance:</em> record end-of-cycle queue/server statistics, then advance the clock. At the final cycle, queued and in-flight requests are reported without draining.</li>
+      </ol>
+    </li>
+    <li><strong>Finish.</strong> When the clock reaches T, the Logger prints and writes a final summary: requests generated, completed, blocked and still queued; servers added and removed; peak and final server counts; average queue size; and utilization per server.</li>
+  </ol>
+</section>
+
+<!-- ============ SCALING ============ -->
+<section class="card" id="scaling">
+  <h2>5. Scaling Policy &amp; IP Blocker</h2>
+  <h3>Dynamic server scaling</h3>
+  <p>Let <code>S</code> be the current number of servers and <code>Q</code> the queue size. The goal is to keep <code>Q</code> between <code>50 &times; S</code> and <code>80 &times; S</code>.</p>
+<pre>every cycle, after arrivals:
+    if cooldown has expired:
+        if Q &gt; 80 * S:                 add one server
+        else if Q &lt; 50 * S and S &gt; 1: mark one server to retire
+        if server count changed: restart cooldown
+    assign FIFO work to idle, non-retiring servers
+    remove retiring servers once idle</pre>
+  <p>Here <code>Q</code> is the waiting queue and <code>S</code> is the current server count. Comparisons are strict and scale-up is checked first. Cooldown counts complete cycles after a successful server-count change; an unchanged check does not restart it. A retiring server finishes its current request, takes no new work, and is then removed. The pool never falls below one server. The exact cycle order, request duration contract, counters, and interfaces are recorded in the <a href="../docs/design.md">system design</a>.</p>
+
+  <h3>IP range blocker (firewall)</h3>
+  <p>The IPBlocker stores each blocked range as a pair of 32-bit integers (low and high). Incoming addresses are converted to integers and compared against every range, so a check is a simple numeric comparison. This gives Meridian Cloud a basic firewall and denial-of-service filter: a burst of requests from one range is dropped before it ever reaches the queue and appears in the log as a blocked event.</p>
+</section>
+
+<!-- ============ CONFIG ============ -->
+<section class="card" id="config">
+  <h2>6. Configuration, Logging &amp; Output</h2>
+  <div class="grid2">
+    <div>
+      <h3>Config file (<code>meridian.cfg</code>)</h3>
+<pre># Meridian Cloud settings
+servers        = 20
+run_cycles     = 100000
+cooldown_n     = 25
+min_per_server = 50
+max_per_server = 80
+new_req_rate   = 0.35
+job_time_min   = 5
+job_time_max   = 80
+verbose        = true
+block_range    = 10.0.0.0-10.0.255.255
+block_range    = 192.168.50.0-192.168.50.255</pre>
+    </div>
+    <div>
+      <h3>Run modes</h3>
+      <ul>
+        <li><strong>Verbose:</strong> logs every change event (server added or removed, request blocked, thresholds crossed), not every clock cycle.</li>
+        <li><strong>Quiet:</strong> prints only a starting summary and an ending summary.</li>
+      </ul>
+      <h3>Console colors</h3>
+      <ul>
+        <li><span class="swatch" style="background:#2e9e4f"></span>Green: server added / normal progress</li>
+        <li><span class="swatch" style="background:#e0a100"></span>Yellow: server removed / warnings</li>
+        <li><span class="swatch" style="background:#d33"></span>Red: blocked request / overload</li>
+        <li><span class="swatch" style="background:#14B8C4"></span>Cyan: summaries and headers</li>
+      </ul>
+    </div>
+  </div>
+  <h3>Summary contents</h3>
+  <p>The start summary lists the configuration used. The end summary reports total requests generated, completed, blocked and left in the queue; servers added, removed, peak and final; minimum, maximum and average queue size; and per-server jobs completed and utilization. The required deliverable log is a run of <strong>20 servers for 100,000 clock cycles</strong>.</p>
+  <div class="callout"><strong>Planned file layout:</strong> <code>main.cpp</code>, <code>Request.h</code>, <code>RequestQueue.h/.cpp</code>, <code>WebServer.h/.cpp</code>, <code>IPBlocker.h/.cpp</code>, <code>LoadBalancer.h/.cpp</code>, <code>Config.h/.cpp</code>, <code>Logger.h/.cpp</code>, <code>Switch.h/.cpp</code> (bonus), and a <code>Makefile</code>.</div>
+</section>
+
+<!-- ============ BONUS ============ -->
+<section class="card" id="bonus">
+  <h2>7. Bonus: Switch and Multiple Load Balancers</h2>
+  <p>The Switch sits above two LoadBalancer instances. Each incoming request is inspected for its <code>jobType</code>: streaming jobs (<code>S</code>) go to the streaming LoadBalancer and processing jobs (<code>P</code>) go to the processing LoadBalancer. Each balancer has its own queue, server pool, scaling thresholds and statistics, so the two workloads scale independently. The Switch's <code>stepAll()</code> advances both balancers on the same clock, and <code>report()</code> prints a separate summary for each, which also covers the &ldquo;multiple load balancers running concurrently&rdquo; objective.</p>
+</section>
+
+</main>
+
+<footer class="site">
+  <p><strong>Meridian Cloud</strong></p>
+</footer>
+
+</body>
+</html>
