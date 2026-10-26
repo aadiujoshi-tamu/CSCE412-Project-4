@@ -40,8 +40,12 @@ With Doxygen installed, generate the API reference with:
 make docs
 ```
 
-Generated HTML is placed in `docs/doxygen/html/`. The design and test/tuning notes are in [`docs/design.md`](docs/design.md) and [`docs/tuning.md`](docs/tuning.md). The branded project design site is in [`website/index.html`](website/index.html).
+Generated HTML is placed in `docs/doxygen/html/`. The full project guide and recording script are in [`docs/project_documentation.md`](docs/project_documentation.md) and [`docs/demo_script.md`](docs/demo_script.md). Design and test/tuning notes are in [`docs/design.md`](docs/design.md) and [`docs/tuning.md`](docs/tuning.md). The branded project design site is in [`website/index.html`](website/index.html).
 
 ## Optional processing/streaming switch
 
 `Switch` is the bonus logical-concurrency component. Construct it with shared `LoadBalancerOptions`, call `routeRequest()` for externally supplied requests, then call `run()` or advance it with `step()`. It creates randomized initial/runtime requests, sends `P` and `S` jobs to separate load balancers, advances both on the same clock, and exposes separate plus combined statistics with `getStatistics()` and `writeSummary()`.
+
+## AI Disclaimer
+
+AI was utilized as a pair programmer in implementing the source code files and execution scripts, along with project structure and code structure decisions.

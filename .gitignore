@@ -2,3 +2,5 @@
 /build/
 /loadbalancer
 /docs/doxygen/
+/logs/demo.log
+/ignore
