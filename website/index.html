@@ -425,11 +425,12 @@
 <pre>every cycle, after arrivals:
     if cooldown has expired:
         if Q &gt; 80 * S:                 add one server
-        else if Q &lt; 50 * S and S &gt; 1: mark one server to retire
+        else if Q &lt; 50 * S and S &gt; min_servers:
+            remove one idle server, if available
+            otherwise defer scale-down
         if server count changed: restart cooldown
-    assign FIFO work to idle, non-retiring servers
-    remove retiring servers once idle</pre>
-  <p>Here <code>Q</code> is the waiting queue and <code>S</code> is the current server count. Comparisons are strict and scale-up is checked first. Cooldown counts complete cycles after a successful server-count change; an unchanged check does not restart it. A retiring server finishes its current request, takes no new work, and is then removed. The pool never falls below one server. The exact cycle order, request duration contract, counters, and interfaces are recorded in the <a href="../docs/design.md">system design</a>.</p>
+    assign FIFO work to idle servers</pre>
+  <p>Here <code>Q</code> is the waiting queue and <code>S</code> is the current server count. Comparisons are strict and scale-up is checked first. Cooldown counts cycles after a successful server-count change; an unchanged or deferred check does not restart it. Scale-down removes only an idle server, so active work is never abandoned. The pool respects configurable minimum and maximum server counts. The exact cycle order, request duration contract, counters, and interfaces are recorded in the <a href="../docs/design.md">system design</a>.</p>
 
   <h3>IP range blocker (firewall)</h3>
   <p>The IPBlocker stores each blocked range as a pair of 32-bit integers (low and high). Incoming addresses are converted to integers and compared against every range, so a check is a simple numeric comparison. This gives Meridian Cloud a basic firewall and denial-of-service filter: a burst of requests from one range is dropped before it ever reaches the queue and appears in the log as a blocked event.</p>

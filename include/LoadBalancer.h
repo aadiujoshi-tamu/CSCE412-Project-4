@@ -10,7 +10,7 @@
 #include <memory>
 #include <vector>
 
-/** Settings needed by the Phase 4 load balancer core. */
+/** Settings for the load balancer simulation. */
 struct LoadBalancerOptions {
     std::size_t initialServers = 1;
     std::size_t initialRequestsPerServer = 100;
@@ -18,6 +18,12 @@ struct LoadBalancerOptions {
     std::uint64_t randomSeed = 1;
     int minRequestDuration = 5;
     int maxRequestDuration = 80;
+    std::size_t minServers = 1;
+    std::size_t maxServers = 100;
+    std::size_t minRequestsPerServer = 50;
+    std::size_t maxRequestsPerServer = 80;
+    std::uint64_t scalingCooldown = 100;
+    bool scalingEnabled = true;
 };
 
 /** Snapshot of aggregate load-balancer and server state. */
@@ -29,6 +35,11 @@ struct LBStats {
     std::size_t queuedRequests = 0;
     std::size_t inFlightRequests = 0;
     std::size_t serverCount = 0;
+    std::size_t peakServerCount = 0;
+    std::size_t serversAdded = 0;
+    std::size_t serversRemoved = 0;
+    std::size_t scaleUpLimitHits = 0;
+    std::size_t scaleDownDeferredBusy = 0;
     std::size_t peakQueueSize = 0;
     std::uint64_t queueSizeSum = 0;
     double averageQueueSize = 0.0;
@@ -38,9 +49,9 @@ struct LBStats {
 /**
  * @brief Owns the FIFO request queue and server pool for one simulation.
  *
- * Phase 4 implements initial workload creation, FIFO scheduling, cycle
- * advancement, and basic accounting. Random arrivals, firewall checks, and
- * autoscaling are added in later project phases.
+ * Owns the initial workload, FIFO queue, and server pool. Each cycle advances
+ * existing work, considers scaling, then assigns waiting work. Random arrivals,
+ * firewall checks, configuration-file loading, and logging are added later.
  */
 class LoadBalancer {
 public:
@@ -51,6 +62,9 @@ public:
 
     /** Assign queued requests to idle servers in server-ID order. */
     void assignRequests();
+
+    /** Evaluate and apply at most one scaling action for the current cycle. */
+    void checkScaling();
 
     /** Advance the simulation by one cycle using the documented cycle order. */
     void step();
@@ -81,8 +95,19 @@ private:
     std::uint64_t completedRequests_ = 0;
     std::uint64_t queueSizeSum_ = 0;
     std::size_t peakQueueSize_ = 0;
+    std::size_t peakServerCount_ = 0;
+    std::size_t serversAdded_ = 0;
+    std::size_t serversRemoved_ = 0;
+    std::size_t scaleUpLimitHits_ = 0;
+    std::size_t scaleDownDeferredBusy_ = 0;
+    std::uint64_t lastScalingCycle_ = 0;
+    std::size_t nextServerId_ = 1;
+    bool hasScaled_ = false;
+    std::vector<ServerStats> retiredServerStats_;
 
     void tickServers();
+    void addServer();
+    bool removeIdleServer();
 };
 
 #endif // MERIDIAN_LOAD_BALANCER_H

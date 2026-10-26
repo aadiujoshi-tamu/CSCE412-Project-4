@@ -1,5 +1,6 @@
 #include "LoadBalancer.h"
 
+#include <iterator>
 #include <limits>
 #include <stdexcept>
 
@@ -11,15 +12,24 @@ LoadBalancer::LoadBalancer(const LoadBalancerOptions& options)
     if (options_.initialServers == 0) {
         throw std::invalid_argument("Load balancer must start with at least one server");
     }
+    if (options_.minServers == 0 || options_.maxServers < options_.minServers ||
+        options_.initialServers < options_.minServers ||
+        options_.initialServers > options_.maxServers) {
+        throw std::invalid_argument("Server counts must satisfy min <= initial <= max");
+    }
+    if (options_.minRequestsPerServer >= options_.maxRequestsPerServer) {
+        throw std::invalid_argument("Queue lower threshold must be less than upper threshold");
+    }
     if (options_.initialRequestsPerServer >
         std::numeric_limits<std::size_t>::max() / options_.initialServers) {
         throw std::length_error("Initial request count exceeds addressable memory");
     }
 
     servers_.reserve(options_.initialServers);
-    for (std::size_t id = 1; id <= options_.initialServers; ++id) {
-        servers_.push_back(std::make_unique<WebServer>(id));
+    for (std::size_t i = 0; i < options_.initialServers; ++i) {
+        servers_.push_back(std::make_unique<WebServer>(nextServerId_++));
     }
+    peakServerCount_ = servers_.size();
 
     const std::size_t initialRequestCount =
         options_.initialServers * options_.initialRequestsPerServer;
@@ -63,9 +73,66 @@ void LoadBalancer::tickServers() {
     }
 }
 
+void LoadBalancer::addServer() {
+    servers_.push_back(std::make_unique<WebServer>(nextServerId_++));
+    ++serversAdded_;
+    if (servers_.size() > peakServerCount_) {
+        peakServerCount_ = servers_.size();
+    }
+}
+
+bool LoadBalancer::removeIdleServer() {
+    // Prefer retiring the newest server so IDs of older capacity remain stable.
+    for (auto it = servers_.rbegin(); it != servers_.rend(); ++it) {
+        if ((*it)->isIdle()) {
+            retiredServerStats_.push_back((*it)->stats());
+            servers_.erase(std::next(it).base());
+            ++serversRemoved_;
+            return true;
+        }
+    }
+    return false;
+}
+
+void LoadBalancer::checkScaling() {
+    if (!options_.scalingEnabled) {
+        return;
+    }
+    if (hasScaled_ && currentCycle_ - lastScalingCycle_ < options_.scalingCooldown) {
+        return;
+    }
+
+    const std::size_t serverCount = servers_.size();
+    const std::size_t queueSize = queue_.size();
+    const std::size_t requestsPerServer = queueSize / serverCount;
+    const bool aboveUpper = requestsPerServer > options_.maxRequestsPerServer ||
+        (requestsPerServer == options_.maxRequestsPerServer &&
+         queueSize % serverCount != 0);
+    const bool belowLower = requestsPerServer < options_.minRequestsPerServer;
+
+    if (aboveUpper) {
+        if (serverCount >= options_.maxServers) {
+            ++scaleUpLimitHits_;
+            return;
+        }
+        addServer();
+    } else if (belowLower && serverCount > options_.minServers) {
+        if (!removeIdleServer()) {
+            ++scaleDownDeferredBusy_;
+            return;
+        }
+    } else {
+        return;
+    }
+
+    hasScaled_ = true;
+    lastScalingCycle_ = currentCycle_;
+}
+
 void LoadBalancer::step() {
     ++currentCycle_;
     tickServers();
+    checkScaling();
     assignRequests();
 
     queueSizeSum_ += queue_.size();
@@ -100,6 +167,11 @@ LBStats LoadBalancer::getStatistics() const {
     result.completedRequests = completedRequests_;
     result.queuedRequests = queue_.size();
     result.serverCount = servers_.size();
+    result.peakServerCount = peakServerCount_;
+    result.serversAdded = serversAdded_;
+    result.serversRemoved = serversRemoved_;
+    result.scaleUpLimitHits = scaleUpLimitHits_;
+    result.scaleDownDeferredBusy = scaleDownDeferredBusy_;
     result.peakQueueSize = peakQueueSize_ > queue_.peakSize()
                                ? peakQueueSize_
                                : queue_.peakSize();
@@ -108,7 +180,9 @@ LBStats LoadBalancer::getStatistics() const {
                                   ? static_cast<double>(queue_.size())
                                   : static_cast<double>(queueSizeSum_) /
                                         static_cast<double>(currentCycle_);
-    result.servers.reserve(servers_.size());
+    result.servers.reserve(retiredServerStats_.size() + servers_.size());
+    result.servers.insert(result.servers.end(),
+                          retiredServerStats_.begin(), retiredServerStats_.end());
     for (const auto& server : servers_) {
         result.servers.push_back(server->stats());
         if (server->isBusy()) {
