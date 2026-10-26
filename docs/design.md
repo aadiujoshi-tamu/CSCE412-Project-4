@@ -16,9 +16,9 @@ The program simulates a single FIFO request queue, a dynamically sized pool of w
 | `Configuration` | Initial server count, run length, queue multiplier, scaling thresholds and cooldown, arrival settings, duration limits, seed, log mode/path, blocked ranges, blocked-request test fraction | `static Configuration load(const string& path)`; `void validate() const` | Parses configuration and rejects invalid or inconsistent values before simulation starts. |
 | `RequestGenerator` | `mt19937_64` engine, inclusive duration bounds, and next request ID | `RequestGenerator(uint64_t seed, int minDuration, int maxDuration)`; `Request make(uint64_t cycle)` | Makes valid addresses, inclusive duration range, and a `P`/`S` type. One engine is seeded once. The configured seed makes runs reproducible. |
 | `IPFilter` | Parsed inclusive IPv4 ranges and blocked count | `explicit IPFilter(const vector<IPRange>&)`; `bool isBlocked(const string& ip) const`; `uint64_t blockedCount() const` | Parses addresses/ranges as 32-bit values and checks source addresses. Malformed addresses/ranges fail configuration loading. |
-| `RequestQueue` | `queue<Request>` and peak size | `void push(Request)`; `Request pop()`; `bool empty() const`; `size_t size() const`; `size_t peakSize() const` | FIFO storage for accepted requests awaiting assignment. `pop` requires a nonempty queue. |
+| `RequestQueue` | `queue<Request>` and peak size | `void push(const Request&)`; `Request pop()`; `bool empty() const`; `size_t size() const`; `size_t peakSize() const` | FIFO storage for accepted requests awaiting assignment. `pop` throws if the queue is empty. |
 | `WebServer` | ID, optional active request, remaining cycles, completed count, busy cycles, active/retiring state | `explicit WebServer(size_t id)`; `bool isBusy() const`; `bool isIdle() const`; `bool assign(const Request&)`; `optional<Request> tick()`; `void retireWhenIdle()`; `bool isRetiring() const`; `ServerStats stats() const` | Processes at most one request at a time. Returns a completed request from `tick`; never accesses the shared queue. A retiring server accepts no new work and is removed once idle. |
-| `LoadBalancer` | Configuration, queue, `vector<unique_ptr<WebServer>>`, clock, generator, filter, cooldown, stats | `LoadBalancer(const Configuration&, Logger&)`; `void run()`; `void step()`; `LBStats stats() const` | Owns server lifetime and queue; coordinates arrivals, filtering, service, scaling, assignment, statistics, and event logging. |
+| `LoadBalancer` | `LoadBalancerOptions`, queue, `vector<unique_ptr<WebServer>>`, clock, generator, and core counters | `LoadBalancer(const LoadBalancerOptions&)`; `void addRequest(const Request&)`; `void assignRequests()`; `void step()`; `void run()`; `size_t getQueueSize() const`; `size_t getServerCount() const`; `LBStats getStatistics() const` | Owns server lifetime and queue; provides initial workload, FIFO assignment, service-cycle advancement, and core statistics. Later phases add arrivals, filtering, scaling, configuration-file loading, and logging. |
 | `Logger` | Mode, output stream/file, color setting | `Logger(LogMode, const string& path, bool color)`; `void event(EventLevel, const string&)`; `void startSummary(const Configuration&)`; `void finalSummary(const LBStats&)` | Writes the same meaningful event stream to the log file and, as configured, the console. Quiet mode writes only start and final summaries; verbose mode also writes significant events. |
 
 `LoadBalancer` owns each `WebServer` through `unique_ptr`; it owns `RequestQueue` by value and coordinates `IPFilter`, `RequestGenerator`, and `Logger` through references or values with explicit lifetime. `WebServer` owns its active request by value/optional. `RequestQueue` owns waiting requests by value. No server mutates the queue. The logger does not own simulation state.
@@ -55,6 +55,8 @@ classDiagram
 
 The clock begins at cycle 0. The initial queue is filled before cycle 1 with `initialServers * initialRequestsPerServer` generated requests stamped with arrival cycle 0; each is passed through the firewall. The configured queue multiplier defaults to 100. Initial rejected requests count as generated and rejected, not accepted.
 
+The Phase 4 implementation currently provides the core queue/server simulation: it creates the initial queue, advances existing server work, assigns waiting requests FIFO, and tracks core counts. It intentionally has no runtime arrivals, firewall, autoscaling, configuration-file parser, or logger yet; those are subsequent roadmap phases. Until filtering is integrated, `addRequest` means an already accepted request and increments both generated and accepted counts.
+
 For each cycle `c` from 1 through `runCycles`, execute these steps in order:
 
 1. Advance every request that was already processing at the start of the cycle by one cycle. A duration-5 request assigned after cycle 1's tick completes on cycle 6's tick: it receives exactly five ticks, beginning on the cycle after assignment. A request completing in this step makes its server idle.
@@ -78,6 +80,7 @@ Quiet mode emits one startup configuration summary and one end summary to consol
 
 ```text
 include/Request.h
+include/RequestQueue.h          src/RequestQueue.cpp
 include/Configuration.h       src/Configuration.cpp
 include/RequestGenerator.h    src/RequestGenerator.cpp
 include/RequestQueue.h
