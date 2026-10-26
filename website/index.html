@@ -443,20 +443,25 @@
     <div>
       <h3>Config file (<code>meridian.cfg</code>)</h3>
 <pre># Meridian Cloud settings
-servers        = 20
-run_cycles     = 100000
-cooldown_n     = 25
-min_per_server = 50
-max_per_server = 80
-arrival_probability = 0.10
-arrival_batch_min = 1
-arrival_batch_max = 5
-random_seed    = 12345
-job_time_min   = 5
-job_time_max   = 80
-verbose        = true
-block_range    = 10.0.0.0/16
-block_range    = 192.168.50.0/24</pre>
+initial_servers=20
+clock_cycles=100000
+initial_requests_per_server=100
+request_time_min=10
+request_time_max=100
+random_seed=12345
+arrival_probability=0.10
+arrival_batch_min=1
+arrival_batch_max=5
+lower_queue_threshold=50
+upper_queue_threshold=80
+scaling_cooldown=100
+min_servers=1
+max_servers=100
+log_mode=quiet
+log_file=logs/simulation.log
+enable_colors=true
+blocked_ranges=10.0.0.0/16,192.168.50.0/24</pre>
+  <p>File values can be overridden from the command line, for example <code>--servers 5 --cycles 1000 --verbose</code>. If omitted, <code>config/meridian.cfg</code> is loaded.</p>
     </div>
     <div>
       <h3>Run modes</h3>
