@@ -482,6 +482,7 @@ blocked_ranges=10.0.0.0/16,192.168.50.0/24</pre>
   </div>
   <h3>Summary contents</h3>
   <p>Each cycle has a configurable chance of generating an inclusive-size request batch. One configured random seed drives arrival timing, batch size and request details, so the same settings reproduce the same workload. The start summary lists the configuration used. The end summary reports total requests generated, completed, blocked and left in the queue; servers added, removed, peak and final; minimum, maximum and average queue size; and per-server jobs completed and utilization. The required deliverable log is a run of <strong>20 servers for 100,000 clock cycles</strong>.</p>
+  <p><a href="../docs/tuning.md">View the measured test and tuning results</a>.</p>
   <div class="callout"><strong>Planned file layout:</strong> <code>main.cpp</code>, <code>Request.h</code>, <code>RequestQueue.h/.cpp</code>, <code>WebServer.h/.cpp</code>, <code>IPBlocker.h/.cpp</code>, <code>LoadBalancer.h/.cpp</code>, <code>Config.h/.cpp</code>, <code>Logger.h/.cpp</code>, <code>Switch.h/.cpp</code> (bonus), and a <code>Makefile</code>.</div>
 </section>
 

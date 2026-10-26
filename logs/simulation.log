@@ -1,0 +1,129 @@
+========================================================
+              LOAD BALANCER SIMULATION
+                  QUIET MODE
+========================================================
+SIMULATION CONFIGURATION
+Initial Servers:                 20
+Total Clock Cycles:              100000
+Initial Requests per Server:     100
+Request Processing Range:        10 - 100 cycles
+Lower Queue Threshold:           50 requests/server
+Upper Queue Threshold:           80 requests/server
+Scaling Cooldown:                100 cycles
+Scaling Enabled:                 YES
+Random Seed:                     12345
+Arrival Probability:             0.1
+Arrival Batch:                   1 - 5
+Firewall:                        ENABLED
+Blocked IP Ranges:                10.0.0.0/16, 192.168.50.0/24
+Log File:                        logs/simulation.log
+
+INITIAL SYSTEM STATUS
+Starting Queue Size:             2000
+Initial Requests Generated:      2000
+Initial Requests Accepted:       2000
+Initial Requests Rejected:       0
+Starting Active Servers:         20
+Starting Busy Servers:           0
+Starting Idle Servers:           20
+========================================================
+
+REQUEST STATISTICS
+Total Requests Generated:        31934
+Total Requests Accepted:         31933
+Total Requests Rejected:         1
+Arrival Batch Events:            9999
+Total Requests Assigned:         31059
+Total Requests Completed:        31043
+Requests Still Processing:       16
+Requests Still in Queue:         874
+
+QUEUE STATISTICS
+Starting Queue Size:             2000
+Ending Queue Size:               874
+Minimum Queue Size:              833
+Maximum Queue Size:              2000
+Average Queue Size:              1085.34
+Average Waiting Time:            3451.41 cycles
+Maximum Waiting Time:            4413 cycles
+Cycles Below Target:             28
+Cycles Within Target:            99572
+Cycles Above Target:             400
+
+SERVER STATISTICS
+Starting Servers:                20
+Ending Servers:                  16
+Minimum Active Servers:          16
+Maximum Active Servers:          25
+Servers Created:                 6
+Servers Removed:                 10
+Scale-Up Events:                 6
+Scale-Down Events:               10
+Scale-Up Limit Hits:             0
+Scale-Down Busy Deferrals:        14
+Busy Servers at End:             16
+Idle Servers at End:             0
+Busy Server-Cycles:              1704130
+Available Server-Cycles:         1704150
+Average Utilization:              100.00%
+
+FIREWALL STATISTICS
+Rejected Requests:               1
+Rejection Rate:                  0.00%
+Blocked IP Ranges:                10.0.0.0/16, 192.168.50.0/24
+
+PERFORMANCE SUMMARY
+Throughput:                      0.31 req/cycle
+Average Processing Time:         54.88 cycles
+
+PER-SERVER TOTALS
+Server 13: completed=79, busy cycles=4182
+Server 10: completed=83, busy cycles=4551
+Server 20: completed=90, busy cycles=4993
+Server 9: completed=97, busy cycles=5218
+Server 4: completed=121, busy cycles=6221
+Server 12: completed=140, busy cycles=7216
+Server 18: completed=129, busy cycles=7626
+Server 15: completed=231, busy cycles=12431
+Server 2: completed=288, busy cycles=15641
+Server 14: completed=1739, busy cycles=94883
+Server 1: completed=1852, busy cycles=99999
+Server 3: completed=1823, busy cycles=99999
+Server 5: completed=1816, busy cycles=99999
+Server 6: completed=1846, busy cycles=99999
+Server 7: completed=1812, busy cycles=99999
+Server 8: completed=1785, busy cycles=99999
+Server 11: completed=1840, busy cycles=99999
+Server 16: completed=1817, busy cycles=99999
+Server 17: completed=1839, busy cycles=99999
+Server 19: completed=1802, busy cycles=99999
+Server 21: completed=1810, busy cycles=99999
+Server 22: completed=1813, busy cycles=99899
+Server 23: completed=1808, busy cycles=99799
+Server 24: completed=1814, busy cycles=99699
+Server 25: completed=1805, busy cycles=99599
+Server 26: completed=764, busy cycles=42183
+
+EVENT COUNTS
+ARRIVE: 9999
+ASSIGN: 31059
+DONE: 31043
+BLOCK: 1
+SCALE+: 6
+SCALE-: 10
+WARN: 5
+Total Scaling Operations:         16
+
+FINAL SYSTEM STATUS
+Final Clock Cycle:               100000
+Remaining Requests in Queue:     874
+Requests Still Processing:       16
+Active Servers:                  16
+Idle Servers:                    0
+Rejected Requests:               1
+Request Accounting Check:         PASS
+Assignment Accounting Check:      PASS
+Simulation Completed:            YES
+========================================================
+                 END OF SIMULATION
+========================================================

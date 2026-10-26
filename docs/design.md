@@ -89,6 +89,11 @@ include/LoadBalancer.h        src/LoadBalancer.cpp
 src/main.cpp
 config/meridian.cfg
 logs/.gitkeep
+logs/simulation.log
+tests/TEST_PLAN.md
+tests/test_simulation.cpp
+tests/run_tests.sh
+docs/tuning.md
 Makefile
 Doxyfile
 ```
