@@ -96,6 +96,12 @@ public:
     /** Advance the simulation by one cycle using the documented cycle order. */
     void step();
 
+    /**
+     * Advance one cycle while admitting requests supplied by an external router.
+     * Incoming requests are admitted after ticking and before scaling/assignment.
+     */
+    void stepWithRequests(const std::vector<Request>& incomingRequests);
+
     /** Run exactly the configured number of cycles. */
     void run();
 

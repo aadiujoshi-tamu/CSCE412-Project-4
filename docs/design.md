@@ -20,6 +20,7 @@ The program simulates a single FIFO request queue, a dynamically sized pool of w
 | `WebServer` | ID, optional active request, remaining cycles, completed count, busy cycles, active/retiring state | `explicit WebServer(size_t id)`; `bool isBusy() const`; `bool isIdle() const`; `bool assign(const Request&)`; `optional<Request> tick()`; `void retireWhenIdle()`; `bool isRetiring() const`; `ServerStats stats() const` | Processes at most one request at a time. Returns a completed request from `tick`; never accesses the shared queue. A retiring server accepts no new work and is removed once idle. |
 | `LoadBalancer` | `LoadBalancerOptions`, IP filter, queue, `vector<unique_ptr<WebServer>>`, retired-server stats, clock, generator, cooldown, and counters | `LoadBalancer(const LoadBalancerOptions&)`; `bool addRequest(const Request&)`; `void assignRequests()`; `void checkScaling()`; `void step()`; `void run()`; `void setLogger(Logger*)`; `LBStats getStatistics() const` | Owns server lifetime and queue; filters generated requests by source IP before admission; provides FIFO assignment, service-cycle advancement, autoscaling, and complete performance counters. Receives validated options from `Configuration`. |
 | `Logger` | Mode, output stream/file, color setting, event counts | `Logger(LogMode, const string& path, bool color)`; `void event(EventLevel, cycle, message)`; `void startSummary(const Configuration&, const LBStats&)`; `void finalSummary(const Configuration&, const LBStats&)` | Writes plain-text logs and optional terminal colors. Quiet mode writes initial/final summaries and event totals; verbose mode also writes significant request and scaling events. |
+| `Switch` (bonus) | Two `LoadBalancer` instances, shared request generator/clock, and per-job routing counts | `Switch(const LoadBalancerOptions&)`; `bool routeRequest(const Request&)`; `void step()`; `void run()`; `SwitchStats getStatistics() const`; `void writeSummary(ostream&) const` | Splits the initial server pool, routes `P` and `S` requests into distinct queues, advances both balancers on one logical clock, and reports separate/combined statistics. |
 
 `LoadBalancer` owns each `WebServer` through `unique_ptr`; it owns `RequestQueue` by value, `IPFilter` by value, and `RequestGenerator` by value. `Configuration` produces the validated options passed to the balancer. `WebServer` owns its active request by value/optional. `RequestQueue` owns waiting requests by value. No server mutates the queue. The logger does not own simulation state.
 
@@ -36,6 +37,7 @@ classDiagram
   class IPFilter
   class Logger
   class LoadBalancer
+  class Switch
   main --> Configuration
   main --> Logger
   main --> LoadBalancer
@@ -47,6 +49,8 @@ classDiagram
   RequestQueue o-- Request
   WebServer o-- Request
   RequestGenerator ..> Request
+  Switch *-- LoadBalancer : processing
+  Switch *-- LoadBalancer : streaming
 ```
 
 `LBStats` records the random seed, arrival-event count, generated, accepted, rejected, assigned, completed, queued-at-end, and in-flight-at-end requests; completed processing cycles; starting/minimum/peak/final queue and server counts; queue sums, wait times, and threshold-band cycle counts; busy/available server-cycles; scaling-limit/deferred-scale-down counters; and per-server completion and busy-cycle counts. “Generated” counts all created requests, “rejected” counts generated requests denied by the filter, and “accepted” counts requests placed in the queue. Therefore `generated = accepted + rejected` during the run, and at shutdown `generated = rejected + completed + queued + in-flight`. Also `assigned = completed + in-flight`.
@@ -55,7 +59,7 @@ classDiagram
 
 The clock begins at cycle 0. The initial queue is filled before cycle 1 with `initialServers * initialRequestsPerServer` generated requests stamped with arrival cycle 0. The configured queue multiplier defaults to 100. Until Phase 7 integrates the firewall, all generated requests are accepted.
 
-The Phase 4 through 9 implementation provides the queue/server simulation, dynamic scaling, configurable random arrivals, the firewall, configuration parsing, logging, detailed statistics, and a command-line entry point. Every generated initial or runtime request is checked against the configured source-address ranges before admission. A repeatable build/test workflow is still subsequent work.
+The mandatory Phase 4 through 10 implementation provides the queue/server simulation, dynamic scaling, configurable random arrivals, the firewall, configuration parsing, logging, detailed statistics, a command-line entry point, and an automated test/tuning workflow. The optional Phase 11 switch is implemented as a separate component. Every generated initial or runtime request is checked against the configured source-address ranges before admission.
 
 For each cycle `c` from 1 through `runCycles`, execute these steps in order:
 
@@ -86,6 +90,7 @@ include/RequestGenerator.h    src/RequestGenerator.cpp
 include/WebServer.h           src/WebServer.cpp
 include/Logger.h              src/Logger.cpp
 include/LoadBalancer.h        src/LoadBalancer.cpp
+include/Switch.h              src/Switch.cpp (bonus)
 src/main.cpp
 config/meridian.cfg
 logs/.gitkeep

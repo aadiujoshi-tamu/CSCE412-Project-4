@@ -147,12 +147,14 @@
       <rect class="box" x="860" y="20" width="220" height="126" rx="4"/>
       <rect class="hdr" x="860" y="20" width="220" height="28" rx="4"/>
       <text class="cname" x="970" y="39">Switch (bonus)</text>
-      <text class="mem" x="870" y="66">-streamLB: LoadBalancer*</text>
-      <text class="mem" x="870" y="82">-procLB: LoadBalancer*</text>
-      <line class="sep" x1="860" y1="88" x2="1080" y2="88"/>
-      <text class="mem" x="870" y="104">+route(r: Request): void</text>
-      <text class="mem" x="870" y="120">+stepAll(): void</text>
-      <text class="mem" x="870" y="136">+report(): void</text>
+      <text class="mem" x="870" y="66">-processing: LoadBalancer</text>
+      <text class="mem" x="870" y="82">-streaming: LoadBalancer</text>
+      <text class="mem" x="870" y="98">-sharedCycle: uint64</text>
+      <line class="sep" x1="860" y1="104" x2="1080" y2="104"/>
+      <text class="mem" x="870" y="120">+routeRequest(r): bool</text>
+      <text class="mem" x="870" y="136">+step(), run(): void</text>
+      <text class="mem" x="870" y="152">+getStatistics(): SwitchStats</text>
+      <text class="mem" x="870" y="168">+writeSummary(out): void</text>
     </g>
 
     <!-- RequestQueue -->
@@ -273,7 +275,7 @@
     <tr><td>LoadBalancer</td><td>Owns the queue and the server pool, keeps the clock, assigns work to idle servers, and applies the scaling rules. Several instances can run at once, each with its own statistics.</td><td><code>step()</code> &rarr; void (one clock cycle)<br><code>checkScaling()</code> &rarr; void<br><code>getSummary()</code> &rarr; LBStats</td></tr>
     <tr><td>Config</td><td>Loads and validates the settings file so nothing has to be edited in code.</td><td><code>load(path)</code> &rarr; bool<br><code>validate()</code> &rarr; bool</td></tr>
     <tr><td>Logger</td><td>Writes events to the console (with color) and to a log file. Verbose mode logs each change event; quiet mode logs only the start and end summaries.</td><td><code>event(type, msg)</code> &rarr; void<br><code>summary(stats)</code> &rarr; void</td></tr>
-    <tr><td>Switch (bonus)</td><td>A higher-level router that sends streaming jobs to one LoadBalancer and processing jobs to another.</td><td><code>route(Request)</code> &rarr; void<br><code>stepAll()</code> &rarr; void</td></tr>
+    <tr><td>Switch (bonus)</td><td>Owns separate processing and streaming LoadBalancers, routes requests by job type, advances both on a shared clock, and reports separate plus combined statistics.</td><td><code>routeRequest(Request)</code> &rarr; bool<br><code>step()</code> / <code>run()</code><br><code>getStatistics()</code> &rarr; SwitchStats</td></tr>
   </table>
 </section>
 
@@ -483,13 +485,13 @@ blocked_ranges=10.0.0.0/16,192.168.50.0/24</pre>
   <h3>Summary contents</h3>
   <p>Each cycle has a configurable chance of generating an inclusive-size request batch. One configured random seed drives arrival timing, batch size and request details, so the same settings reproduce the same workload. The start summary lists the configuration used. The end summary reports total requests generated, completed, blocked and left in the queue; servers added, removed, peak and final; minimum, maximum and average queue size; and per-server jobs completed and utilization. The required deliverable log is a run of <strong>20 servers for 100,000 clock cycles</strong>.</p>
   <p><a href="../docs/tuning.md">View the measured test and tuning results</a>.</p>
-  <div class="callout"><strong>Planned file layout:</strong> <code>main.cpp</code>, <code>Request.h</code>, <code>RequestQueue.h/.cpp</code>, <code>WebServer.h/.cpp</code>, <code>IPBlocker.h/.cpp</code>, <code>LoadBalancer.h/.cpp</code>, <code>Config.h/.cpp</code>, <code>Logger.h/.cpp</code>, <code>Switch.h/.cpp</code> (bonus), and a <code>Makefile</code>.</div>
+  <div class="callout"><strong>Project files:</strong> <code>main.cpp</code>, <code>Request.h</code>, <code>RequestQueue.h/.cpp</code>, <code>WebServer.h/.cpp</code>, <code>IPFilter.h/.cpp</code>, <code>LoadBalancer.h/.cpp</code>, <code>Configuration.h/.cpp</code>, <code>Logger.h/.cpp</code>, <code>Switch.h/.cpp</code> (bonus), and a <code>Makefile</code>.</div>
 </section>
 
 <!-- ============ BONUS ============ -->
 <section class="card" id="bonus">
   <h2>7. Bonus: Switch and Multiple Load Balancers</h2>
-  <p>The Switch sits above two LoadBalancer instances. Each incoming request is inspected for its <code>jobType</code>: streaming jobs (<code>S</code>) go to the streaming LoadBalancer and processing jobs (<code>P</code>) go to the processing LoadBalancer. Each balancer has its own queue, server pool, scaling thresholds and statistics, so the two workloads scale independently. The Switch's <code>stepAll()</code> advances both balancers on the same clock, and <code>report()</code> prints a separate summary for each, which also covers the &ldquo;multiple load balancers running concurrently&rdquo; objective.</p>
+  <p>The Switch owns two LoadBalancer instances. It routes streaming jobs (<code>S</code>) to the streaming balancer and processing jobs (<code>P</code>) to the processing balancer. Each has its own queue, server pool, scaling thresholds and statistics, so the workloads scale independently. <code>step()</code> advances both balancers on one shared clock; <code>writeSummary()</code> reports both systems and their combined totals.</p>
 </section>
 
 </main>

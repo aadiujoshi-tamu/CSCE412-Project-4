@@ -3,10 +3,12 @@
 #include "LoadBalancer.h"
 #include "RequestGenerator.h"
 #include "RequestQueue.h"
+#include "Switch.h"
 #include "WebServer.h"
 
 #include <cassert>
 #include <iostream>
+#include <sstream>
 #include <stdexcept>
 #include <string>
 
@@ -201,6 +203,65 @@ void testScaleDownDefersWhenAllServersBusy() {
     assert(stats.assignedRequests == stats.completedRequests + stats.inFlightRequests);
 }
 
+void testSwitchRoutesAndAdvancesOnSharedClock() {
+    LoadBalancerOptions options;
+    options.initialServers = 2;
+    options.initialRequestsPerServer = 0;
+    options.runCycles = 2;
+    options.minRequestDuration = 1;
+    options.maxRequestDuration = 1;
+    options.arrivalProbability = 0.0;
+    options.scalingEnabled = false;
+
+    Switch trafficSwitch(options);
+    assert(trafficSwitch.routeRequest(request(100, 1, "203.0.113.1")));
+    Request streaming = request(101, 1, "203.0.113.2");
+    streaming.jobType = 'S';
+    assert(trafficSwitch.routeRequest(streaming));
+
+    trafficSwitch.step();
+    SwitchStats stats = trafficSwitch.getStatistics();
+    assert(stats.currentCycle == 1);
+    assert(stats.processing.currentCycle == 1 && stats.streaming.currentCycle == 1);
+    assert(stats.routedProcessing == 1 && stats.routedStreaming == 1);
+    assert(stats.inFlightRequests == 2);
+
+    trafficSwitch.step();
+    stats = trafficSwitch.getStatistics();
+    assert(stats.currentCycle == 2);
+    assert(stats.completedRequests == 2);
+    assert(stats.processing.completedRequests == 1);
+    assert(stats.streaming.completedRequests == 1);
+    assert(stats.serverCount == 2);
+    std::ostringstream report;
+    trafficSwitch.writeSummary(report);
+    assert(report.str().find("PROCESSING LOAD BALANCER") != std::string::npos);
+    assert(report.str().find("STREAMING LOAD BALANCER") != std::string::npos);
+    assert(report.str().find("COMBINED TOTALS") != std::string::npos);
+}
+
+void testSwitchScalesPoolsIndependently() {
+    LoadBalancerOptions options;
+    options.initialServers = 2;
+    options.initialRequestsPerServer = 0;
+    options.runCycles = 1;
+    options.minRequestDuration = 5;
+    options.maxRequestDuration = 5;
+    options.arrivalProbability = 0.0;
+    options.minRequestsPerServer = 0;
+    options.maxRequestsPerServer = 1;
+
+    Switch trafficSwitch(options);
+    assert(trafficSwitch.routeRequest(request(1, 5)));
+    assert(trafficSwitch.routeRequest(request(2, 5)));
+    trafficSwitch.step();
+    const SwitchStats stats = trafficSwitch.getStatistics();
+    assert(stats.processing.serversAdded == 1);
+    assert(stats.streaming.serversAdded == 0);
+    assert(stats.processing.serverCount == 2);
+    assert(stats.streaming.serverCount == 1);
+}
+
 } // namespace
 
 int main() {
@@ -213,5 +274,7 @@ int main() {
     testFirewallRejectsBeforeQueueAdmission();
     testScalingUpAndServerLimit();
     testScaleDownDefersWhenAllServersBusy();
+    testSwitchRoutesAndAdvancesOnSharedClock();
+    testSwitchScalesPoolsIndependently();
     std::cout << "All Meridian simulation tests passed.\n";
 }

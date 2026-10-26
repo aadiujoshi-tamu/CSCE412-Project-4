@@ -223,9 +223,16 @@ void LoadBalancer::checkScaling() {
 }
 
 void LoadBalancer::step() {
+    stepWithRequests({});
+}
+
+void LoadBalancer::stepWithRequests(const std::vector<Request>& incomingRequests) {
     ++currentCycle_;
     tickServers();
     generateArrivals();
+    for (const Request& request : incomingRequests) {
+        addRequest(request);
+    }
     checkScaling();
     assignRequests();
 

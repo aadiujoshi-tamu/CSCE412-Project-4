@@ -12,4 +12,5 @@ The suite covers:
 - Firewall rejection before queue admission.
 - Scale-up and maximum-server enforcement.
 - Deferred scale-down when all servers are processing.
+- Bonus switch routing, shared clock advancement, separate summaries, and independent scaling.
 - End-to-end CLI startup, quiet-mode summaries, accounting checks, and plain-text log output.

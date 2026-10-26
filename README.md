@@ -41,3 +41,7 @@ make docs
 ```
 
 Generated HTML is placed in `docs/doxygen/html/`. The design and test/tuning notes are in [`docs/design.md`](docs/design.md) and [`docs/tuning.md`](docs/tuning.md). The branded project design site is in [`website/index.html`](website/index.html).
+
+## Optional processing/streaming switch
+
+`Switch` is the bonus logical-concurrency component. Construct it with shared `LoadBalancerOptions`, call `routeRequest()` for externally supplied requests, then call `run()` or advance it with `step()`. It creates randomized initial/runtime requests, sends `P` and `S` jobs to separate load balancers, advances both on the same clock, and exposes separate plus combined statistics with `getStatistics()` and `writeSummary()`.

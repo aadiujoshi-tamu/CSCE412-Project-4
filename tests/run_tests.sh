@@ -8,14 +8,14 @@ trap 'rm -rf "$TEST_BUILD_DIR"' EXIT
 cd "$PROJECT_DIR"
 g++ -std=c++17 -Wall -Wextra -Wpedantic -Iinclude \
     tests/test_simulation.cpp \
-    src/Configuration.cpp src/IPFilter.cpp src/LoadBalancer.cpp src/Logger.cpp \
+    src/Configuration.cpp src/IPFilter.cpp src/LoadBalancer.cpp src/Logger.cpp src/Switch.cpp \
     src/RequestGenerator.cpp src/RequestQueue.cpp src/WebServer.cpp \
     -o "$TEST_BUILD_DIR/meridian_tests"
 "$TEST_BUILD_DIR/meridian_tests"
 
 g++ -std=c++17 -Wall -Wextra -Wpedantic -Iinclude \
     src/main.cpp src/Configuration.cpp src/IPFilter.cpp src/LoadBalancer.cpp \
-    src/Logger.cpp src/RequestGenerator.cpp src/RequestQueue.cpp src/WebServer.cpp \
+    src/Logger.cpp src/RequestGenerator.cpp src/RequestQueue.cpp src/Switch.cpp src/WebServer.cpp \
     -o "$TEST_BUILD_DIR/loadbalancer"
 sed "s#^log_file=.*#log_file=$TEST_BUILD_DIR/smoke.log#" \
     config/meridian.cfg > "$TEST_BUILD_DIR/smoke.cfg"
