@@ -62,7 +62,7 @@
     <div>
       <h3>What the program does</h3>
       <ul>
-        <li>Reads settings from a configuration file (number of servers, run time, cooldown, request rates, blocked IP ranges).</li>
+        <li>Uses configurable simulation settings for server counts, run time, cooldown, random arrivals, request duration, and blocked IP ranges.</li>
         <li>Fills the queue with <code>servers &times; 100</code> random requests, then keeps adding new ones at random times.</li>
         <li>Screens every new request against an IP range blocker before it is queued.</li>
         <li>Lets each server process one request at a time for a random number of clock cycles.</li>
@@ -448,7 +448,10 @@ run_cycles     = 100000
 cooldown_n     = 25
 min_per_server = 50
 max_per_server = 80
-new_req_rate   = 0.35
+arrival_probability = 0.10
+arrival_batch_min = 1
+arrival_batch_max = 5
+random_seed    = 12345
 job_time_min   = 5
 job_time_max   = 80
 verbose        = true
@@ -471,7 +474,7 @@ block_range    = 192.168.50.0-192.168.50.255</pre>
     </div>
   </div>
   <h3>Summary contents</h3>
-  <p>The start summary lists the configuration used. The end summary reports total requests generated, completed, blocked and left in the queue; servers added, removed, peak and final; minimum, maximum and average queue size; and per-server jobs completed and utilization. The required deliverable log is a run of <strong>20 servers for 100,000 clock cycles</strong>.</p>
+  <p>Each cycle has a configurable chance of generating an inclusive-size request batch. One configured random seed drives arrival timing, batch size and request details, so the same settings reproduce the same workload. The start summary lists the configuration used. The end summary reports total requests generated, completed, blocked and left in the queue; servers added, removed, peak and final; minimum, maximum and average queue size; and per-server jobs completed and utilization. The required deliverable log is a run of <strong>20 servers for 100,000 clock cycles</strong>.</p>
   <div class="callout"><strong>Planned file layout:</strong> <code>main.cpp</code>, <code>Request.h</code>, <code>RequestQueue.h/.cpp</code>, <code>WebServer.h/.cpp</code>, <code>IPBlocker.h/.cpp</code>, <code>LoadBalancer.h/.cpp</code>, <code>Config.h/.cpp</code>, <code>Logger.h/.cpp</code>, <code>Switch.h/.cpp</code> (bonus), and a <code>Makefile</code>.</div>
 </section>
 

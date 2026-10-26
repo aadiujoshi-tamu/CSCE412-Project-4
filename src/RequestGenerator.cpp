@@ -1,6 +1,7 @@
 #include "RequestGenerator.h"
 
 #include <array>
+#include <cmath>
 #include <stdexcept>
 #include <string>
 
@@ -27,6 +28,20 @@ Request RequestGenerator::make(std::uint64_t arrivalCycle) {
     request.jobType = std::uniform_int_distribution<int>(0, 1)(engine_) == 0 ? 'P' : 'S';
     request.arrivalCycle = arrivalCycle;
     return request;
+}
+
+bool RequestGenerator::eventOccurs(double probability) {
+    if (!std::isfinite(probability) || probability < 0.0 || probability > 1.0) {
+        throw std::invalid_argument("Probability must be finite and between 0 and 1");
+    }
+    return std::bernoulli_distribution(probability)(engine_);
+}
+
+int RequestGenerator::uniformInt(int minimum, int maximum) {
+    if (minimum > maximum) {
+        throw std::invalid_argument("Random integer minimum must not exceed maximum");
+    }
+    return std::uniform_int_distribution<int>(minimum, maximum)(engine_);
 }
 
 std::string RequestGenerator::makeIPv4() {

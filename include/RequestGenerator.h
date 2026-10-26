@@ -33,6 +33,12 @@ public:
      */
     Request make(std::uint64_t arrivalCycle);
 
+    /** Return true with the supplied probability using the same seeded engine. */
+    bool eventOccurs(double probability);
+
+    /** Draw an inclusive integer using the same seeded engine. */
+    int uniformInt(int minimum, int maximum);
+
 private:
     std::mt19937_64 engine_;
     int minDuration_;

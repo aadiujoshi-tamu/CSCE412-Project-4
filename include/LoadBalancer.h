@@ -18,6 +18,9 @@ struct LoadBalancerOptions {
     std::uint64_t randomSeed = 1;
     int minRequestDuration = 5;
     int maxRequestDuration = 80;
+    double arrivalProbability = 0.10;
+    int arrivalBatchMin = 1;
+    int arrivalBatchMax = 5;
     std::size_t minServers = 1;
     std::size_t maxServers = 100;
     std::size_t minRequestsPerServer = 50;
@@ -29,8 +32,10 @@ struct LoadBalancerOptions {
 /** Snapshot of aggregate load-balancer and server state. */
 struct LBStats {
     std::uint64_t currentCycle = 0;
+    std::uint64_t randomSeed = 0;
     std::uint64_t generatedRequests = 0;
     std::uint64_t acceptedRequests = 0;
+    std::uint64_t arrivalEvents = 0;
     std::uint64_t completedRequests = 0;
     std::size_t queuedRequests = 0;
     std::size_t inFlightRequests = 0;
@@ -50,8 +55,9 @@ struct LBStats {
  * @brief Owns the FIFO request queue and server pool for one simulation.
  *
  * Owns the initial workload, FIFO queue, and server pool. Each cycle advances
- * existing work, considers scaling, then assigns waiting work. Random arrivals,
- * firewall checks, configuration-file loading, and logging are added later.
+ * existing work, generates this cycle's arrivals, considers scaling, then
+ * assigns waiting work. Firewall checks, configuration-file loading, and
+ * logging are added later.
  */
 class LoadBalancer {
 public:
@@ -92,6 +98,7 @@ private:
     std::uint64_t currentCycle_ = 0;
     std::uint64_t generatedRequests_ = 0;
     std::uint64_t acceptedRequests_ = 0;
+    std::uint64_t arrivalEvents_ = 0;
     std::uint64_t completedRequests_ = 0;
     std::uint64_t queueSizeSum_ = 0;
     std::size_t peakQueueSize_ = 0;
@@ -106,6 +113,7 @@ private:
     std::vector<ServerStats> retiredServerStats_;
 
     void tickServers();
+    void generateArrivals();
     void addServer();
     bool removeIdleServer();
 };

@@ -2,6 +2,7 @@
 
 #include <iterator>
 #include <limits>
+#include <cmath>
 #include <stdexcept>
 
 LoadBalancer::LoadBalancer(const LoadBalancerOptions& options)
@@ -19,6 +20,14 @@ LoadBalancer::LoadBalancer(const LoadBalancerOptions& options)
     }
     if (options_.minRequestsPerServer >= options_.maxRequestsPerServer) {
         throw std::invalid_argument("Queue lower threshold must be less than upper threshold");
+    }
+    if (!std::isfinite(options_.arrivalProbability) ||
+        options_.arrivalProbability < 0.0 || options_.arrivalProbability > 1.0) {
+        throw std::invalid_argument("Arrival probability must be between 0 and 1");
+    }
+    if (options_.arrivalBatchMin < 1 ||
+        options_.arrivalBatchMin > options_.arrivalBatchMax) {
+        throw std::invalid_argument("Arrival batch bounds must satisfy 1 <= min <= max");
     }
     if (options_.initialRequestsPerServer >
         std::numeric_limits<std::size_t>::max() / options_.initialServers) {
@@ -70,6 +79,19 @@ void LoadBalancer::tickServers() {
         if (server->tick().has_value()) {
             ++completedRequests_;
         }
+    }
+}
+
+void LoadBalancer::generateArrivals() {
+    if (!requestGenerator_.eventOccurs(options_.arrivalProbability)) {
+        return;
+    }
+
+    ++arrivalEvents_;
+    const int batchSize =
+        requestGenerator_.uniformInt(options_.arrivalBatchMin, options_.arrivalBatchMax);
+    for (int i = 0; i < batchSize; ++i) {
+        addRequest(requestGenerator_.make(currentCycle_));
     }
 }
 
@@ -132,6 +154,7 @@ void LoadBalancer::checkScaling() {
 void LoadBalancer::step() {
     ++currentCycle_;
     tickServers();
+    generateArrivals();
     checkScaling();
     assignRequests();
 
@@ -162,8 +185,10 @@ std::uint64_t LoadBalancer::getCurrentCycle() const noexcept {
 LBStats LoadBalancer::getStatistics() const {
     LBStats result;
     result.currentCycle = currentCycle_;
+    result.randomSeed = options_.randomSeed;
     result.generatedRequests = generatedRequests_;
     result.acceptedRequests = acceptedRequests_;
+    result.arrivalEvents = arrivalEvents_;
     result.completedRequests = completedRequests_;
     result.queuedRequests = queue_.size();
     result.serverCount = servers_.size();
