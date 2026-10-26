@@ -3,7 +3,7 @@ PROJECT_NAME           = "Meridian Cloud Load Balancer"
 PROJECT_BRIEF          = "A configurable C++ discrete-time load balancer simulation"
 OUTPUT_DIRECTORY       = docs/doxygen
 
-INPUT                  = include src README.md
+INPUT                  = include src README.md docs/design.md docs/tuning.md
 INPUT_ENCODING         = UTF-8
 FILE_PATTERNS          = *.h *.cpp *.md
 RECURSIVE              = YES
@@ -17,9 +17,9 @@ GENERATE_LATEX          = NO
 USE_MDFILE_AS_MAINPAGE = README.md
 MARKDOWN_SUPPORT       = YES
 
-HAVE_DOT               = YES
-CALL_GRAPH             = YES
-CALLER_GRAPH           = YES
+HAVE_DOT               = NO
+CALL_GRAPH             = NO
+CALLER_GRAPH           = NO
 UML_LOOK               = YES
 DOT_IMAGE_FORMAT       = svg
 
